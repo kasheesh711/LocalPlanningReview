@@ -5,12 +5,8 @@ import {
 import {
     Upload, Filter, Package, Calendar, ChevronDown, Search, ToggleLeft, ToggleRight, AlertTriangle, X, Table, SlidersHorizontal, ArrowUpDown, CheckSquare, Square, Activity, Layers, Factory, Network, FileSpreadsheet, ArrowRight, Warehouse, Box, ArrowLeftRight, MapPin, RefreshCw, RotateCcw, PanelLeft, Sun, Moon, MoreHorizontal, Share2, LayoutDashboard, Clock, Move, MousePointer2, Plus, Minus, Maximize, Eye, EyeOff
 } from 'lucide-react';
-
-// --- CONFIGURATION ---
-const GOOGLE_SHEET_CONFIG = {
-    INVENTORY_URL: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSe_LVLpnR6g1hDB3e9iulTyW6H-GZaDr0RbmOf0_ePIFcS8XnKFngsdZHKy_i4YSLpdLe6BMPAO9Av/pub?gid=1666488360&single=true&output=csv", 
-    BOM_URL: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQwON2WzEI596aLH7oCBzoawdIL1TufE-Ta8GWpsj_D3xQOVggZMsFEl_l4pFzeFmvLPAbyS2AWSghV/pub?gid=106702660&single=true&output=csv"        
-};
+import inventorySampleCSV from './data/inventory.csv?raw';
+import bomSampleCSV from './data/bom.csv?raw';
 
 const PLANT_ORGS = ['THRYPM', 'MYBGPM'];
 const DC_ORGS = ['THBNDM', 'VNHCDM', 'VNHNDM', 'IDCKDM', 'PHPSDM'];
@@ -63,24 +59,17 @@ const getLeadTimeWeeks = (invOrg) => {
     return 4;
 };
 
-// --- Sample Data ---
-const SAMPLE_CSV = `Factory,Type,Item Code,Inv Org,Item Class,UOM,Strategy,Original Item String,Metric,Start,Date,Value
-SF,FG,AAG620-MR2,MYBGPM,MR,LM,MTS,AAG620-MR2/MYBGPM/MR/LM/MTS,Tot.Req.,0,11/19/2025,9910.16
-SF,FG,AAG620-MR2,MYBGPM,MR,LM,MTS,AAG620-MR2/MYBGPM/MR/LM/MTS,Tot.Inventory (Forecast),0,11/19/2025,5000.00
-SF,FG,AAG620-MR2,MYBGPM,MR,LM,MTS,AAG620-MR2/MYBGPM/MR/LM/MTS,Tot.Target Inv.,0,11/19/2025,4000.00
-SF,FG,AAG620-MR2,MYBGPM,MR,LM,MTS,AAG620-MR2/MYBGPM/MR/LM/MTS,Tot.Req.,0,11/20/2025,500.00
-SF,FG,AAG620-MR2,MYBGPM,MR,LM,MTS,AAG620-MR2/MYBGPM/MR/LM/MTS,Tot.Inventory (Forecast),0,11/20/2025,400.00
-SF,FG,AAG620-MR2,MYBGPM,MR,LM,MTS,AAG620-MR2/MYBGPM/MR/LM/MTS,Tot.Target Inv.,0,11/20/2025,4000.00
-SF,FG,AAG620-MR2,MYBGPM,MR,LM,MTS,AAG620-MR2/MYBGPM/MR/LM/MTS,Tot.Req.,0,11/21/2025,0
-SF,FG,AAG620-MR2,MYBGPM,MR,LM,MTS,AAG620-MR2/MYBGPM/MR/LM/MTS,Tot.Inventory (Forecast),0,11/21/2025,-400.00
-SF,FG,AAG620-MR2,MYBGPM,MR,LM,MTS,AAG620-MR2/MYBGPM/MR/LM/MTS,Tot.Target Inv.,0,11/21/2025,4000.00
-SF,RM,BAB250-MR1,MYBGPM,FA,KG,MTS,BAB250-MR1/MYBGPM/FA/KG/MTS,Tot.Inventory (Forecast),0,11/19/2025,2500.00
-SF,RM,BAB250-MR1,MYBGPM,FA,KG,MTS,BAB250-MR1/MYBGPM/FA/KG/MTS,Tot.Target Inv.,0,11/19/2025,3000.00
-SF,RM,BAB250-MR1,MYBGPM,FA,KG,MTS,BAB250-MR1/MYBGPM/FA/KG/MTS,Tot.Inventory (Forecast),0,11/20/2025,2400.00
-SF,RM,BAB250-MR1,MYBGPM,FA,KG,MTS,BAB250-MR1/MYBGPM/FA/KG/MTS,Tot.Target Inv.,0,11/20/2025,3000.00`;
+const seededRandom = (seed) => {
+    let hash = 2166136261;
+    for (let i = 0; i < seed.length; i++) {
+        hash ^= seed.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0) / 4294967296;
+};
 
 const DEFAULT_BOM = [
-    { parent: 'AAG620-MR2', child: 'BAB250-MR1', ratio: 0.5, plant: 'MYBGPM' }, 
+    { parent: 'AAG620-MR2', child: 'BAB250-MR1', ratio: 0.5, plant: 'MYBGPM' },
 ];
 
 // --- Network Analysis Component (High Performance) ---
@@ -127,9 +116,8 @@ const NetworkGraphView = ({ rawData, bomData, isDarkMode, selectedNode }) => {
                     itemCode: row['Item Code'],
                     invOrg: row['Inv Org'],
                     type,
-                    // Random start pos
-                    x: Math.random() * 800,
-                    y: Math.random() * 600,
+                    x: seededRandom(`${id}-x`) * 800,
+                    y: seededRandom(`${id}-y`) * 600,
                     vx: 0, vy: 0,
                     degree: 0,
                     currentInv: 0,
@@ -863,22 +851,21 @@ const SupplyChainMap = forwardRef(({ filters, setFilters, selectedItemFromParent
         reset: handleReset
     }));
 
-    useEffect(() => {
-        if (selectedItemFromParent) {
-            let type = 'FG';
-            if (PLANT_ORGS.includes(selectedItemFromParent.invOrg)) type = 'FG';
-            else if (DC_ORGS.includes(selectedItemFromParent.invOrg)) type = 'DC';
-            else type = 'RM'; 
+    const derivedMapFocus = useMemo(() => {
+        if (!selectedItemFromParent) return null;
+        let type = 'FG';
+        if (PLANT_ORGS.includes(selectedItemFromParent.invOrg)) type = 'FG';
+        else if (DC_ORGS.includes(selectedItemFromParent.invOrg)) type = 'DC';
+        else type = 'RM';
 
-            if (!mapFocus || mapFocus.id !== selectedItemFromParent.itemCode) {
-                setMapFocus({ 
-                    type: type,
-                    id: selectedItemFromParent.itemCode, 
-                    invOrg: selectedItemFromParent.invOrg 
-                });
-            }
-        }
-    }, [selectedItemFromParent, inventoryData]);
+        return {
+            type,
+            id: selectedItemFromParent.itemCode,
+            invOrg: selectedItemFromParent.invOrg
+        };
+    }, [selectedItemFromParent]);
+
+    const currentMapFocus = derivedMapFocus || mapFocus;
 
     // 1. Index Data
     const dataIndex = useMemo(() => {
@@ -1003,19 +990,19 @@ const SupplyChainMap = forwardRef(({ filters, setFilters, selectedItemFromParent
         targetRMKeys = targetRMKeys.filter(k => bomIndex.children.has(k));
         targetFGKeys = targetFGKeys.filter(k => bomIndex.parents.has(k));
 
-        if (mapFocus) {
-            const focusId = mapFocus.id;
+        if (currentMapFocus) {
+            const focusId = currentMapFocus.id;
 
-            if (mapFocus.type === 'FG') {
-                const parentKey = `${focusId}|${mapFocus.invOrg}`;
+            if (currentMapFocus.type === 'FG') {
+                const parentKey = `${focusId}|${currentMapFocus.invOrg}`;
                 const ingredients = bomIndex.p2c[parentKey];
                 if (ingredients) targetRMKeys = targetRMKeys.filter(k => ingredients.has(k));
                 else targetRMKeys = [];
 
                 targetDCKeys = targetDCKeys.filter(k => k.split('|')[0] === focusId);
 
-            } else if (mapFocus.type === 'RM') {
-                const childKey = `${focusId}|${mapFocus.invOrg}`;
+            } else if (currentMapFocus.type === 'RM') {
+                const childKey = `${focusId}|${currentMapFocus.invOrg}`;
                 const consumers = bomIndex.c2p[childKey];
                 if (consumers) targetFGKeys = targetFGKeys.filter(k => consumers.has(k));
                 else targetFGKeys = [];
@@ -1023,7 +1010,7 @@ const SupplyChainMap = forwardRef(({ filters, setFilters, selectedItemFromParent
                 const visibleFgCodes = new Set(targetFGKeys.map(k => k.split('|')[0]));
                 targetDCKeys = targetDCKeys.filter(k => visibleFgCodes.has(k.split('|')[0]));
 
-            } else if (mapFocus.type === 'DC') {
+            } else if (currentMapFocus.type === 'DC') {
                 targetFGKeys = targetFGKeys.filter(k => k.split('|')[0] === focusId);
 
                 const ingredientKeys = new Set();
@@ -1072,7 +1059,7 @@ const SupplyChainMap = forwardRef(({ filters, setFilters, selectedItemFromParent
                 <NodeCard 
                     key={`${n.id}-${n.invOrg}`} 
                     node={n} 
-                    isActive={mapFocus && mapFocus.id === n.id && mapFocus.invOrg === n.invOrg}
+                    isActive={currentMapFocus && currentMapFocus.id === n.id && currentMapFocus.invOrg === n.invOrg}
                     onSelect={() => {
                         setMapFocus(n);
                         onNodeSelect(n); 
@@ -1089,7 +1076,7 @@ const SupplyChainMap = forwardRef(({ filters, setFilters, selectedItemFromParent
             dcList: dcNodes.map(wrapNode)
         };
 
-    }, [dataIndex, bomIndex, mapFocus, filters, sortRM, sortFG, sortDC, dateRange, getNodeStats, onOpenDetails, onNodeSelect, isDarkMode]);
+    }, [dataIndex, bomIndex, currentMapFocus, filters, sortRM, sortFG, sortDC, getNodeStats, onOpenDetails, onNodeSelect, isDarkMode]);
 
     return (
         // Changed to overflow-x-auto to allow horizontal scrolling if columns overflow
@@ -1106,7 +1093,7 @@ const SupplyChainMap = forwardRef(({ filters, setFilters, selectedItemFromParent
                 setSearchTerm={(val) => setFilters(prev => ({...prev, rmSearch: val}))}
                 sortValue={sortRM}
                 setSort={setSortRM}
-                isActiveCol={mapFocus && mapFocus.type === 'RM'}
+                isActiveCol={currentMapFocus && currentMapFocus.type === 'RM'}
                 isDarkMode={isDarkMode}
             >
                 <div className="flex gap-1.5 mt-2 overflow-x-auto pb-1 scrollbar-none">
@@ -1136,7 +1123,7 @@ const SupplyChainMap = forwardRef(({ filters, setFilters, selectedItemFromParent
                     setSearchTerm={(val) => setFilters(prev => ({...prev, fgSearch: val}))}
                     sortValue={sortFG}
                     setSort={setSortFG}
-                    isActiveCol={mapFocus && mapFocus.type === 'FG'}
+                isActiveCol={currentMapFocus && currentMapFocus.type === 'FG'}
                     isDarkMode={isDarkMode}
                 >
                     <div className="flex gap-1.5 mt-2 overflow-x-auto pb-1 scrollbar-none">
@@ -1166,7 +1153,7 @@ const SupplyChainMap = forwardRef(({ filters, setFilters, selectedItemFromParent
                 setSearchTerm={(val) => setFilters(prev => ({...prev, dcSearch: val}))}
                 sortValue={sortDC}
                 setSort={setSortDC}
-                isActiveCol={mapFocus && mapFocus.type === 'DC'}
+                isActiveCol={currentMapFocus && currentMapFocus.type === 'DC'}
                 isDarkMode={isDarkMode}
             >
                 <div className="flex gap-1.5 mt-2 overflow-x-auto pb-1 scrollbar-none">
@@ -1339,27 +1326,13 @@ export default function SupplyChainDashboard() {
         });
     }, [rawData, listFilters, selectedItem, bomIndex]);
 
-    // --- Fetch from Google Sheets ---
+    // --- Load Offline Starter Data ---
     useEffect(() => {
-        const fetchData = async () => {
-            if (!GOOGLE_SHEET_CONFIG.INVENTORY_URL || !GOOGLE_SHEET_CONFIG.BOM_URL) {
-                const parsed = parseCSV(SAMPLE_CSV);
-                handleDataLoad(parsed);
-                return;
-            }
-
+        const loadLocalData = () => {
             setIsLoading(true);
             try {
-                const [invRes, bomRes] = await Promise.all([
-                    fetch(GOOGLE_SHEET_CONFIG.INVENTORY_URL),
-                    fetch(GOOGLE_SHEET_CONFIG.BOM_URL)
-                ]);
-
-                const invText = await invRes.text();
-                const bomText = await bomRes.text();
-
-                const invData = parseCSV(invText);
-                const bomParsed = parseCSV(bomText);
+                const invData = parseCSV(inventorySampleCSV);
+                const bomParsed = parseCSV(bomSampleCSV);
 
                 const processedBom = bomParsed.map(row => ({
                     plant: row['Plant'] || row['Plant '],
@@ -1369,18 +1342,18 @@ export default function SupplyChainDashboard() {
                 })).filter(row => row.parent && row.child);
 
                 handleDataLoad(invData);
-                setBomData(processedBom);
+                setBomData(processedBom.length ? processedBom : DEFAULT_BOM);
 
             } catch (error) {
-                console.error("Failed to load Google Sheets", error);
-                const parsed = parseCSV(SAMPLE_CSV);
-                handleDataLoad(parsed);
+                console.error("Failed to load local starter data", error);
+                handleDataLoad([]);
+                setBomData(DEFAULT_BOM);
             } finally {
                 setIsLoading(false);
             }
         };
 
-        fetchData();
+        loadLocalData();
     }, []);
 
     const handleInventoryUpload = (event) => {
@@ -1673,7 +1646,7 @@ export default function SupplyChainDashboard() {
     return (
         <div className={`min-h-screen pb-20 transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-slate-200' : 'bg-slate-50 text-slate-900'}`}>
              {/* HEADER */}
-             <header className={`sticky top-0 z-40 backdrop-blur-md border-b transition-colors duration-300 ${isDarkMode ? 'bg-slate-900/80 border-slate-800' : 'bg-white/80 border-slate-200/60'}`}>
+            <header className={`sticky top-0 z-40 backdrop-blur-md border-b transition-colors duration-300 ${isDarkMode ? 'bg-slate-900/80 border-slate-800' : 'bg-white/80 border-slate-200/60'}`}>
                 <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                         <div className="bg-indigo-600 p-2 rounded-xl shadow-lg shadow-indigo-500/20">
@@ -1702,6 +1675,25 @@ export default function SupplyChainDashboard() {
                     </div>
                 </div>
             </header>
+
+            <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 mt-6">
+                <div className={`rounded-2xl border shadow-sm p-4 md:p-5 ${isDarkMode ? 'border-slate-800 bg-slate-900/70 text-slate-200' : 'border-slate-200 bg-white text-slate-800'}`}>
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                        <div className="flex items-start gap-3">
+                            <div className={`p-2 rounded-lg ${isDarkMode ? 'bg-indigo-500/15 text-indigo-200' : 'bg-indigo-50 text-indigo-600'}`}>
+                                <Activity className="w-4 h-4" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-semibold">Offline & ready out of the box</p>
+                                <p className="text-sm text-slate-500 dark:text-slate-400">Starter data lives inside the app (src/data/*.csv). Replace it anytime by clicking "Import CSV" for inventory or "Import BOM" for bill of materials.</p>
+                            </div>
+                        </div>
+                        <div className="text-xs leading-relaxed text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/60 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700">
+                            <span className="font-semibold text-slate-700 dark:text-slate-200">Tip:</span> You never need internet once the files are on your laptop. Keep your own spreadsheets in CSV format and drop them in.
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <div className="flex min-h-[calc(100vh-64px)] max-w-[1800px] mx-auto">
                 {/* --- NAVIGATION SIDEBAR (Left) --- */}
